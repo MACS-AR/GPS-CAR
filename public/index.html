@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المجد للأعلاف | بوابة السائقين</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { royal: { dark: '#070A13', card: '#131A2E', gold: '#D4AF37' } },
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: 'Cairo', sans-serif; background: #070A13; color: #E2E8F0; min-height: 100vh; }
+        .gold-border { border: 1px solid rgba(212, 175, 55, 0.35); }
+        .gold-gradient-text { background: linear-gradient(135deg, #FFF099, #D4AF37, #997A15); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .glass-card { background: rgba(19, 26, 46, 0.85); backdrop-filter: blur(14px); }
+        .gold-shadow { box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.15); }
+    </style>
+</head>
+<body class="p-3 md:p-6 pb-20">
+
+    <!-- شاشة تسجيل دخول السائق -->
+    <div id="loginScreen" class="fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-card gold-border rounded-3xl w-full max-w-md p-6 text-center space-y-6 shadow-2xl">
+            <div class="w-20 h-20 rounded-full mx-auto gold-border overflow-hidden p-1 bg-black/50 flex justify-center items-center">
+                <img src="https://raw.githubusercontent.com/MACS-AR/Elmajd/refs/heads/main/logo.png" alt="شعار المجد" class="object-contain w-full h-full rounded-full">
+            </div>
+            <div>
+                <h2 class="text-2xl font-black gold-gradient-text">بوابة السائقين</h2>
+                <p class="text-xs text-slate-400 mt-1">أدخل رقم هاتفك المسجل لعرض النقل المطلوب وحسابك</p>
+            </div>
+            <form onsubmit="handleDriverManualLogin(event)" class="space-y-4 text-right">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">رقم تليفون السائق</label>
+                    <input type="tel" id="loginPhoneInput" required placeholder="010xxxxxxxx" 
+                        class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-sm text-white text-right focus:outline-none focus:border-amber-400 font-mono">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-yellow-600 font-bold p-3.5 rounded-xl shadow-lg text-slate-950 text-sm">
+                    تسجيل الدخول وعرض البوابة
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Section -->
+    <header class="max-w-4xl mx-auto glass-card gold-border rounded-2xl p-4 mb-6 shadow-2xl flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-14 h-14 rounded-xl gold-border overflow-hidden p-1 bg-black/50 flex justify-center items-center">
+                <img src="https://raw.githubusercontent.com/MACS-AR/Elmajd/refs/heads/main/logo.png" class="object-cover w-full h-full rounded-lg">
+            </div>
+            <div>
+                <h1 class="text-xl font-black gold-gradient-text">مصنع المجد للأعلاف</h1>
+                <p class="text-xs text-slate-400 font-semibold" id="driverWelcomeText">السائق: جاري التحميل...</p>
+            </div>
+        </div>
+        <button onclick="driverLogout()" class="bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 w-10 h-10 rounded-xl flex items-center justify-center border border-rose-500/20">
+            <i class="fa-solid fa-right-from-bracket text-sm"></i>
+        </button>
+    </header>
+
+    <main class="max-w-4xl mx-auto space-y-6">
+        <div class="grid grid-cols-3 gap-2">
+            <button onclick="switchTab('requiredTrips')" id="tabBtnRequired" class="py-3 px-2 rounded-xl font-bold text-xs gold-border bg-amber-500/20 text-amber-500 shadow"><i class="fa-solid fa-truck-ramp-box"></i> النقل المطلوب</button>
+            <button onclick="switchTab('locations')" id="tabBtnLocations" class="py-3 px-2 rounded-xl font-bold text-xs gold-border text-slate-400 shadow"><i class="fa-solid fa-map-location-dot"></i> العملاء</button>
+            <button onclick="switchTab('account')" id="tabBtnAccount" class="py-3 px-2 rounded-xl font-bold text-xs gold-border text-slate-400 shadow"><i class="fa-solid fa-wallet"></i> حسابي (الدخان)</button>
+        </div>
+
+        <!-- TAB 1: REQUIRED TRIPS -->
+        <div id="sectionRequired" class="space-y-4">
+            <h2 class="text-sm font-bold flex items-center gap-2">
+                <i class="fa-solid fa-bell text-amber-500 animate-bounce"></i> الطلبات والنقلات المطلوبة منك (<span id="requiredCount" class="text-amber-500 font-black">0</span>)
+            </h2>
+            <div id="requiredTripsList" class="space-y-4"></div>
+        </div>
+
+        <!-- TAB 2: LOCATIONS -->
+        <div id="sectionLocations" class="hidden space-y-4">
+            <div class="flex justify-between items-center gap-2">
+                <input type="text" id="searchInput" oninput="filterCustomers()" placeholder="ابحث باسم العميل..." class="w-full bg-slate-900 gold-border text-white text-sm rounded-xl p-3">
+                <button onclick="toggleAddModal()" class="bg-amber-500 text-slate-950 font-bold px-4 py-3 rounded-xl text-xs shrink-0"><i class="fa-solid fa-plus"></i> تحديث عميل</button>
+            </div>
+            <div id="customerList" class="space-y-4"></div>
+        </div>
+
+        <!-- TAB 3: ACCOUNT -->
+        <div id="sectionAccount" class="hidden space-y-4">
+            <div class="glass-card gold-border rounded-2xl p-5 space-y-4 gold-shadow">
+                <h3 class="text-md font-bold gold-gradient-text border-b border-amber-500/20 pb-3"><i class="fa-solid fa-file-invoice-dollar text-amber-500"></i> ملخص حساب السائق والدخان</h3>
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800"><span class="text-[11px] text-slate-400 block mb-1">إجمالي النقلات</span><span id="totalTripsCount" class="text-xl font-bold text-amber-400">0</span></div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800"><span class="text-[11px] text-slate-400 block mb-1">إجمالي الدخان</span><span id="totalTipsAmount" class="text-xl font-bold text-emerald-400">0 ج.م</span></div>
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800"><span class="text-[11px] text-slate-400 block mb-1">المستحقات</span><span id="totalDuesAmount" class="text-xl font-bold text-amber-500">0 ج.م</span></div>
+                </div>
+            </div>
+            <div id="driverTripsList" class="space-y-3"></div>
+        </div>
+    </main>
+
+    <!-- Modal الخريطة وبث الحركة المباشر -->
+    <div id="driverMapModal" class="fixed inset-0 bg-black/95 z-[3000] hidden flex-col">
+        <div class="p-4 bg-slate-900 flex justify-between items-center gold-border">
+            <h3 class="font-bold text-amber-400 text-sm" id="mapTargetTitle">تتبع الملاحة والعميل</h3>
+            <button onclick="closeDriverMap()" class="text-rose-400 font-bold"><i class="fa-solid fa-xmark text-lg"></i> إغلاق</button>
+        </div>
+        <div id="driverMap" class="w-full flex-1"></div>
+        <div class="p-4 bg-slate-900 border-t border-slate-800 text-center space-y-2">
+            <p id="gpsStatusText" class="text-xs text-amber-400 font-semibold">جاهز لبدء البث اللحظي...</p>
+            <button id="toggleTrackingBtn" onclick="toggleVercelLiveTracking()" class="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg">
+                <i class="fa-solid fa-location-arrow ml-1"></i> بدء الرحلة وبث الحركة المباشر (GPS)
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal تحديث موقع العميل -->
+    <div id="addModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 z-[2500]">
+        <div class="glass-card gold-border rounded-2xl w-full max-w-lg p-6 relative shadow-2xl">
+            <button onclick="toggleAddModal()" class="absolute left-4 top-4 text-slate-400 hover:text-amber-500"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-lg font-bold gold-gradient-text mb-4 border-b border-amber-500/20 pb-2">تحديث موقع عميل</h3>
+            <form id="customerForm" onsubmit="saveCustomerLocation(event)" class="space-y-3 text-xs">
+                <select id="selectFactoryCustomer" required onchange="onFactoryCustomerSelected()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white"></select>
+                <input type="tel" id="custPhone" placeholder="رقم التليفون" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white">
+                <button type="button" onclick="getCurrentLocation()" id="locBtn" class="w-full bg-slate-800 gold-border text-amber-500 font-semibold p-3 rounded-xl">جلب المكان الحالي (GPS)</button>
+                <input type="hidden" id="custLat"><input type="hidden" id="custLng"><input type="hidden" id="selectedCustId">
+                <button type="submit" id="saveBtn" disabled class="w-full bg-amber-500 text-slate-950 font-bold p-3 rounded-xl">حفظ المكان</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase Realtime Engine -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getDatabase, ref, update, onValue, get } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgRkceRq7FRbhCevLlULYNy-A5Tl_cr0w",
+            authDomain: "sr-test-c9e06.firebaseapp.com",
+            databaseURL: "https://sr-test-c9e06-default-rtdb.firebaseio.com",
+            projectId: "sr-test-c9e06",
+            storageBucket: "sr-test-c9e06.firebasestorage.app",
+            messagingSenderId: "658396508062",
+            appId: "1:658396508062:web:c56cd84f93daa2e176308f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let currentDriver = null;
+        let allCustomers = [], allOrders = [], allTrips = [], allDrivers = [];
+        let driverMap = null, driverMarker = null, watchId = null, isTracking = false;
+
+        function normalizePhone(phone) { return String(phone || '').replace(/\D/g, ''); }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const savedDriver = localStorage.getItem('driverData');
+
+            onValue(ref(db, 'drivers'), s => {
+                allDrivers = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
+            });
+
+            onValue(ref(db, 'clients'), s => {
+                allCustomers = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
+                renderCustomers(allCustomers);
+                populateCustomerDropdown();
+            });
+
+            onValue(ref(db, 'orders'), s => {
+                allOrders = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})).reverse() : [];
+                renderRequiredTrips();
+                renderDriverAccount();
+            });
+
+            onValue(ref(db, 'trips'), s => {
+                allTrips = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})).reverse() : [];
+                renderDriverAccount();
+            });
+
+            if (savedDriver) {
+                currentDriver = JSON.parse(savedDriver);
+                initDriverSession();
+            } else {
+                document.getElementById('loginScreen').classList.remove('hidden');
+            }
+        });
+
+        window.handleDriverManualLogin = (e) => {
+            e.preventDefault();
+            const phone = normalizePhone(document.getElementById('loginPhoneInput').value);
+            const found = allDrivers.find(d => normalizePhone(d.phone) === phone);
+
+            currentDriver = found || { id: 'd_' + phone, name: `سائق (${phone})`, phone };
+            localStorage.setItem('driverData', JSON.stringify(currentDriver));
+            initDriverSession();
+        };
+
+        function initDriverSession() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('driverWelcomeText').innerText = `السائق: ${currentDriver.name} (${currentDriver.phone})`;
+            renderRequiredTrips();
+            renderDriverAccount();
+        }
+
+        window.driverLogout = () => { localStorage.removeItem('driverData'); location.reload(); };
+
+        function renderRequiredTrips() {
+            if (!currentDriver) return;
+            const myOrders = allOrders.filter(o => 
+                (o.driverId && currentDriver.id && o.driverId === currentDriver.id) ||
+                (o.driverPhone && normalizePhone(o.driverPhone) === normalizePhone(currentDriver.phone))
+            );
+
+            document.getElementById('requiredCount').innerText = myOrders.length;
+            const container = document.getElementById('requiredTripsList');
+
+            if (!myOrders.length) {
+                container.innerHTML = `<div class="text-center py-8 glass-card rounded-2xl gold-border"><p class="text-xs text-slate-400">لا يوجد نقل مطلوب مسجل باسمك حالياً.</p></div>`;
+                return;
+            }
+
+            container.innerHTML = myOrders.map(o => `
+                <div class="glass-card gold-border rounded-2xl p-4 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-amber-400">${o.clientName || 'عميل'}</h3>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold border border-amber-500/30 text-amber-400 bg-amber-500/10">${o.status || 'معتمد'}</span>
+                    </div>
+                    <p class="text-xs text-slate-300">الحمولة: ${o.cargoType || 'علف'} (${o.quantity || 0} طن)</p>
+                    <button onclick="openDriverNavigation('${o.lat}', '${o.lng}', '${o.clientName}')" class="w-full bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-location-arrow"></i> فتح الخريطة وبث الحركة المباشر
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        window.openDriverNavigation = (lat, lng, clientName) => {
+            document.getElementById('driverMapModal').classList.remove('hidden');
+            document.getElementById('driverMapModal').classList.add('flex');
+            document.getElementById('mapTargetTitle').innerText = `الوجهة: ${clientName}`;
+
+            if (!driverMap) {
+                driverMap = L.map('driverMap').setView([lat || 30.0444, lng || 31.2357], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
+            }
+            if (lat && lng) {
+                L.marker([lat, lng]).addTo(driverMap).bindPopup(`عميل: ${clientName}`).openPopup();
+            }
+        };
+
+        window.closeDriverMap = () => {
+            document.getElementById('driverMapModal').classList.add('hidden');
+            document.getElementById('driverMapModal').classList.remove('flex');
+        };
+
+        // بث موقع السائق عبر Realtime WebSocket
+        window.toggleVercelLiveTracking = () => {
+            const btn = document.getElementById('toggleTrackingBtn');
+            const status = document.getElementById('gpsStatusText');
+
+            if (isTracking) {
+                navigator.geolocation.clearWatch(watchId);
+                isTracking = false;
+                btn.className = "w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg";
+                btn.innerHTML = `<i class="fa-solid fa-location-arrow ml-1"></i> بدء الرحلة وبث الحركة المباشر (GPS)`;
+                status.innerText = "تم إيقاف البث المباشر.";
+            } else {
+                if (!navigator.geolocation) return alert('GPS غير مدعوم');
+
+                watchId = navigator.geolocation.watchPosition(pos => {
+                    const { latitude, longitude, speed, heading } = pos.coords;
+
+                    update(ref(db, `live_tracking/${currentDriver.id}`), {
+                        driverId: currentDriver.id,
+                        driverName: currentDriver.name,
+                        lat: latitude,
+                        lng: longitude,
+                        speed: speed || 0,
+                        heading: heading || 0,
+                        lastSeen: Date.now()
+                    });
+
+                    if (driverMarker) driverMap.removeLayer(driverMarker);
+                    driverMarker = L.marker([latitude, longitude]).addTo(driverMap).bindPopup("موقعي الحالي").openPopup();
+                    driverMap.setView([latitude, longitude], 15);
+
+                    status.innerText = `جاري بث موقعك للوحة التحكم مباشر (السرعة: ${Math.round((speed||0)*3.6)} كم/س)`;
+                }, err => alert('خطأ في التقاط GPS: ' + err.message), { enableHighAccuracy: true });
+
+                isTracking = true;
+                btn.className = "w-full bg-rose-600 text-white font-bold py-3.5 rounded-xl text-sm shadow-lg";
+                btn.innerHTML = `<i class="fa-solid fa-pause ml-1"></i> إيقاف البث المباشر`;
+            }
+        };
+
+        function renderCustomers(list) {
+            const container = document.getElementById('customerList');
+            if(!container) return;
+            container.innerHTML = list.map(c => `
+                <div class="glass-card gold-border rounded-2xl p-4 flex justify-between items-center text-xs">
+                    <div><strong class="text-white text-sm block mb-1">${c.name}</strong><span class="text-slate-400">${c.phone || 'بدون رقم'}</span></div>
+                    ${c.lat ? `<button onclick="openDriverNavigation('${c.lat}','${c.lng}','${c.name}')" class="bg-amber-500/20 text-amber-400 px-3 py-2 rounded-xl border border-amber-500/30">الموقع</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderDriverAccount() {
+            if (!currentDriver) return;
+            const myTrips = allTrips.filter(t => t.driverId === currentDriver.id);
+            const myOrders = allOrders.filter(o => o.driverId === currentDriver.id);
+            const totalCount = myTrips.length + myOrders.length;
+            const totalTips = myTrips.reduce((s, t) => s + parseFloat(t.tips||0), 0) + myOrders.reduce((s, o) => s + parseFloat(o.tips||0), 0);
+
+            document.getElementById('totalTripsCount').innerText = totalCount;
+            document.getElementById('totalTipsAmount').innerText = totalTips + ' ج.م';
+            document.getElementById('totalDuesAmount').innerText = (totalCount * 25) + ' ج.م';
+        }
+
+        window.switchTab = (tab) => {
+            document.getElementById('sectionRequired').classList.add('hidden');
+            document.getElementById('sectionLocations').classList.add('hidden');
+            document.getElementById('sectionAccount').classList.add('hidden');
+
+            if (tab === 'requiredTrips') document.getElementById('sectionRequired').classList.remove('hidden');
+            else if (tab === 'locations') document.getElementById('sectionLocations').classList.remove('hidden');
+            else document.getElementById('sectionAccount').classList.remove('hidden');
+        };
+
+        window.toggleAddModal = () => { document.getElementById('addModal').classList.toggle('hidden'); document.getElementById('addModal').classList.toggle('flex'); };
+        window.getCurrentLocation = () => {
+            navigator.geolocation.getCurrentPosition(p => {
+                document.getElementById('custLat').value = p.coords.latitude;
+                document.getElementById('custLng').value = p.coords.longitude;
+                document.getElementById('saveBtn').disabled = false;
+            });
+        };
+        function populateCustomerDropdown() {
+            const sel = document.getElementById('selectFactoryCustomer');
+            if(sel) sel.innerHTML = allCustomers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+        window.onFactoryCustomerSelected = () => {
+            const id = document.getElementById('selectFactoryCustomer').value;
+            document.getElementById('selectedCustId').value = id;
+        };
+        window.saveCustomerLocation = async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('selectedCustId').value;
+            await update(ref(db, 'clients/' + id), {
+                phone: document.getElementById('custPhone').value,
+                lat: parseFloat(document.getElementById('custLat').value),
+                lng: parseFloat(document.getElementById('custLng').value)
+            });
+            toggleAddModal();
+        };
+    </script>
+</body>
+</html>
