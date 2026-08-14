@@ -2,83 +2,207 @@
 <html lang="ar" dir="rtl" class="dark">
 <head>
     <meta charset="UTF-8">
-    <title>مصنع المجد للأعلاف | لوحة التحكم والملاحة المباشرة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المجد للأعلاف | لوحة تحكم الإدارة والتتبع الحي</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        royal: {
+                            dark: '#070A13',
+                            card: '#131A2E',
+                            accent: '#1C2642',
+                            gold: '#D4AF37',
+                            goldHover: '#B89028',
+                            goldLight: '#F3E5AB'
+                        }
+                    },
+                    fontFamily: {
+                        cairo: ['Cairo', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS & JS للخرائط -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
-        body { font-family: 'Cairo', sans-serif; background: #070a13; color: #f1f5f9; }
-        .gold-border { border: 1px solid rgba(212, 175, 55, 0.3); }
-        .glass-card { background: rgba(19, 26, 46, 0.85); backdrop-filter: blur(14px); }
+        body {
+            font-family: 'Cairo', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #070A13, #111827, #0A0F1D, #161F33);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: #E2E8F0;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #FFF099 0%, #D4AF37 50%, #997A15 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .gold-border {
+            border: 1px solid rgba(212, 175, 55, 0.35);
+        }
+        .gold-shadow {
+            box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.15);
+        }
+        .glass-card {
+            background: rgba(19, 26, 46, 0.85);
+            backdrop-filter: blur(14px);
+        }
+        #map {
+            height: 450px;
+            width: 100%;
+            border-radius: 1rem;
+            z-index: 10;
+        }
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body class="p-3 md:p-6 pb-20">
 
-    <header class="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center">
-        <h1 class="text-xl font-black text-amber-400 flex items-center gap-2">
-            <i class="fa-solid fa-truck-monster text-amber-500"></i> لوحة تتبع سيارات وإدارة نقل المصنع (Vercel Speed)
-        </h1>
-        <span class="text-xs bg-emerald-500/10 text-emerald-400 px-3 py-1.5 rounded-full border border-emerald-500/20 font-bold flex items-center gap-2">
-            <i class="fa-solid fa-bolt text-amber-400"></i> بث Realtime WebSocket فعال
-        </span>
+    <!-- Header Section -->
+    <header class="max-w-7xl mx-auto glass-card gold-border rounded-2xl p-4 mb-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3 md:gap-4">
+            <div class="w-14 h-14 md:w-16 md:h-16 rounded-xl gold-border overflow-hidden p-1 bg-black/50 flex justify-center items-center shadow-inner">
+                <img src="https://raw.githubusercontent.com/MACS-AR/Elmajd/refs/heads/main/logo.png" alt="شعار المجد للأعلاف" class="object-cover w-full h-full rounded-lg">
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black gold-gradient-text">مصنع المجد للأعلاف - لوحة تحكم الإدارة</h1>
+                <p class="text-xs text-slate-400 font-semibold">تتبع أسطول السيارات وحساب الدخان الأسبوعي (من الأحد إلى الخميس)</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 flex items-center gap-2">
+                <i class="fa-solid fa-circle text-[8px] animate-pulse"></i> بث حي ومتصل بالسيرفر
+            </span>
+        </div>
     </header>
 
-    <div class="flex-1 flex overflow-hidden">
-        <div class="w-96 bg-slate-900 border-l border-slate-800 p-4 space-y-6 overflow-y-auto">
-            <!-- إسناد نقلة لسائق -->
-            <div class="glass-card gold-border p-4 rounded-2xl space-y-3">
-                <h3 class="text-sm font-bold text-amber-400 border-b border-slate-700 pb-2"><i class="fa-solid fa-plus-circle"></i> إسناد نقلة جديدة لسائق</h3>
-                <form id="addOrderForm" onsubmit="createNewOrder(event)" class="space-y-3 text-xs">
-                    <div>
-                        <label class="block text-slate-400 mb-1">اختر العميل</label>
-                        <select id="selectOrderClient" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"></select>
-                    </div>
-                    <div>
-                        <label class="block text-slate-400 mb-1">اختر السائق</label>
-                        <select id="selectOrderDriver" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"></select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="text" id="orderCargo" placeholder="نوع الحمولة" value="علف" class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                        <input type="number" id="orderQty" placeholder="الكمية بالطن" required class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                    </div>
-                    <button type="submit" class="w-full bg-amber-500 text-slate-950 font-bold py-2.5 rounded-lg">إسناد النقلة وتخزينها بالفايربيس</button>
-                </form>
-            </div>
+    <main class="max-w-7xl mx-auto space-y-6">
 
-            <!-- إضافة عميل -->
-            <div class="glass-card gold-border p-4 rounded-2xl space-y-3">
-                <h3 class="text-sm font-bold text-amber-400 border-b border-slate-700 pb-2"><i class="fa-solid fa-user-plus"></i> إضافة عميل جديد وموقعه</h3>
-                <form id="addClientForm" onsubmit="createNewClient(event)" class="space-y-3 text-xs">
-                    <input type="text" id="clientName" placeholder="اسم العميل" required class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                    <input type="tel" id="clientPhone" placeholder="رقم التليفون" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                    <input type="text" id="clientMapUrl" placeholder="رابط خرائط جوجل Google Maps" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-white">
-                    <button type="submit" class="w-full bg-slate-800 border border-slate-700 text-amber-400 font-bold py-2 rounded-lg">حفظ بيانات العميل</button>
-                </form>
+        <!-- ملخص المالي والدخان الأسبوعي (الأحد - الخميس) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="glass-card gold-border p-5 rounded-2xl gold-shadow text-center">
+                <span class="text-xs text-slate-400 block mb-1">دخان الأسبوع الحالي (من الأحد للخميس)</span>
+                <span id="weeklySmokeTotal" class="text-3xl font-black text-emerald-400">0 ج.م</span>
+                <p class="text-[10px] text-slate-500 mt-1">محسوب بمعدل 25 ج.م لكل نقلة مكتملة</p>
             </div>
+            <div class="glass-card gold-border p-5 rounded-2xl gold-shadow text-center">
+                <span class="text-xs text-slate-400 block mb-1">نقلات الأسبوع المكتملة</span>
+                <span id="weeklyTripsCount" class="text-3xl font-black text-amber-400">0</span>
+                <p class="text-[10px] text-slate-500 mt-1">ضمن الدورة الأسبوعية للمصنع</p>
+            </div>
+            <div class="glass-card gold-border p-5 rounded-2xl gold-shadow text-center">
+                <span class="text-xs text-slate-400 block mb-1">عدد السيارات النشطة على الخريطة</span>
+                <span id="activeTrucksCount" class="text-3xl font-black text-white">0</span>
+                <p class="text-[10px] text-slate-500 mt-1">سائقون متصلون ويبثون موقعهم حالياً</p>
+            </div>
+        </div>
 
-            <!-- السائقين المتحركين حالياً -->
-            <div class="space-y-2">
-                <h3 class="text-xs font-bold text-slate-400 flex justify-between">
-                    <span>السائقين المباشرين (Realtime):</span>
-                    <span id="activeDriversCount" class="text-amber-400">0</span>
+        <!-- الخريطة التفاعلية الحية -->
+        <div class="glass-card gold-border p-4 md:p-5 rounded-2xl gold-shadow space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-map-location-dot text-amber-500"></i> خريطة تتبع سيارات المصنع المباشرة
+                </h2>
+                <span class="text-xs text-slate-400">تتحرك السيارات تلقائياً فور بدء الرحلة</span>
+            </div>
+            <div id="map" class="gold-border"></div>
+        </div>
+
+        <!-- إضافة نقلة جديدة + قائمة النقلات الحية -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- نموذج إصدار وإسناد نقلة جديدة -->
+            <div class="lg:col-span-1 glass-card gold-border p-5 rounded-2xl gold-shadow space-y-4">
+                <h3 class="text-md font-bold gold-gradient-text border-b border-amber-500/20 pb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-truck-ramp-box text-amber-500"></i> إسناد نقلة جديدة لسائق
                 </h3>
-                <div id="activeDriversList" class="space-y-2"></div>
+                
+                <form id="dispatchForm" onsubmit="dispatchNewOrder(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block mb-1 text-slate-300 font-semibold">اختر السائق المسجل *</label>
+                        <select id="driverSelect" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                            <option value="">-- اختر السائق من القائمة --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block mb-1 text-slate-300 font-semibold">اختر العميل *</label>
+                        <select id="clientSelect" required onchange="onClientSelected()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                            <option value="">-- اختر العميل --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block mb-1 text-slate-300 font-semibold">رابط موقع العميل (Google Maps)</label>
+                        <input type="url" id="clientMapUrl" placeholder="https://maps.app.goo.gl/..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block mb-1 text-slate-300 font-semibold">الحمولة</label>
+                            <input type="text" id="cargoType" value="علف داجني" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-300 font-semibold">الكمية (طن)</label>
+                            <input type="number" id="quantity" value="10" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block mb-1 text-slate-300 font-semibold">المبلغ الإجمالي (ج.م)</label>
+                            <input type="number" id="totalAmount" required placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                        <div>
+                            <label class="block mb-1 text-slate-300 font-semibold">دخان/إكرامية إضافية</label>
+                            <input type="number" id="extraTip" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 text-slate-950 font-bold p-3.5 rounded-xl shadow-lg transition text-sm flex items-center justify-center gap-2 mt-2">
+                        <i class="fa-solid fa-paper-plane"></i> إرسال النقلة لصفحة السائق فوراً
+                    </button>
+                </form>
             </div>
+
+            <!-- قائمة النقلات والحسابات الحية -->
+            <div class="lg:col-span-2 glass-card gold-border p-5 rounded-2xl gold-shadow space-y-4">
+                <h3 class="text-md font-bold text-white border-b border-amber-500/20 pb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-list-check text-amber-500"></i> سجل ومتابعة النقلات الحية</span>
+                    <span id="ordersCount" class="text-xs bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded-full border border-amber-500/30">0 نقلة</span>
+                </h3>
+
+                <div id="adminOrdersList" class="space-y-3">
+                    <p class="text-center text-xs text-slate-400 py-8">جاري جلب النقلات...</p>
+                </div>
+            </div>
+
         </div>
 
-        <div class="flex-1 relative">
-            <div id="adminMap" class="w-full h-full"></div>
-            <button onclick="fitAllDrivers()" class="absolute top-4 left-4 z-[1000] bg-slate-900 border border-slate-700 text-amber-400 px-4 py-2 rounded-xl text-xs font-bold shadow-lg">
-                <i class="fa-solid fa-expand ml-1"></i> التركيز على كافة السيارات
-            </button>
-        </div>
-    </div>
+    </main>
 
+    <!-- Firebase SDK v10 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+        import { getDatabase, ref, onValue, push, set, update } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBgRkceRq7FRbhCevLlULYNy-A5Tl_cr0w",
@@ -87,117 +211,204 @@
             projectId: "sr-test-c9e06",
             storageBucket: "sr-test-c9e06.firebasestorage.app",
             messagingSenderId: "658396508062",
-            appId: "1:658396508062:web:c56cd84f93daa2e176308f"
+            appId: "1:658396508062:web:c56cd84f93daa2e176308f",
+            measurementId: "G-3ZZV344NDK"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let map = L.map('adminMap').setView([30.0444, 31.2357], 8);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        const customersRef = ref(db, 'clients'); 
+        const driversRef = ref(db, 'drivers');
+        const ordersRef = ref(db, 'orders');
+        const locationsRef = ref(db, 'driverLocations');
 
+        let allCustomers = [];
+        let allDrivers = [];
         let driverMarkers = {};
-        let activeDriversData = {};
-        let allClients = [], allDrivers = [];
 
-        // استقبال التحديثات المباشرة من هاتف السائق لحظياً
-        onValue(ref(db, 'live_tracking'), s => {
-            const data = s.val() || {};
-            activeDriversData = data;
-            const keys = Object.keys(data);
-            document.getElementById('activeDriversCount').innerText = keys.length;
+        // تهيئة الخريطة Leaflet
+        const map = L.map('map').setView([30.0444, 31.2357], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© مصنع المجد للأعلاف'
+        }).addTo(map);
 
-            keys.forEach(id => {
-                const d = data[id];
-                const speedKm = Math.round((d.speed || 0) * 3.6);
+        // دالة التحقق من أن التاريخ يقع في الأسبوع الحالي (من الأحد إلى الخميس)
+        function isSundayToThursday(dateStrOrTimestamp) {
+            const tripDate = dateStrOrTimestamp ? new Date(dateStrOrTimestamp) : new Date();
+            if (isNaN(tripDate.getTime())) return true;
 
-                if (driverMarkers[id]) {
-                    driverMarkers[id].setLatLng([d.lat, d.lng]);
+            const now = new Date();
+            const startSunday = new Date(now);
+            startSunday.setDate(now.getDate() - now.getDay()); // الأحد
+            startSunday.setHours(0, 0, 0, 0);
+
+            const endThursday = new Date(startSunday);
+            endThursday.setDate(startSunday.getDate() + 4); // الخميس
+            endThursday.setHours(23, 59, 59, 999);
+
+            return tripDate >= startSunday && tripDate <= endThursday;
+        }
+
+        // الاستماع المباشر لمواقع الـ GPS الحية للسائقين
+        onValue(locationsRef, (snapshot) => {
+            const data = snapshot.val() || {};
+            const activeDrivers = Object.values(data).filter(d => d.isOnline);
+
+            document.getElementById('activeTrucksCount').innerText = activeDrivers.length;
+
+            activeDrivers.forEach(driver => {
+                const { driverId, driverName, phone, lat, lng, speed, activeOrderId } = driver;
+
+                if (driverMarkers[driverId]) {
+                    driverMarkers[driverId].setLatLng([lat, lng]);
+                    driverMarkers[driverId].getPopup().setContent(`
+                        <div style="text-align:right; font-family:Cairo; font-size:12px;">
+                            <strong style="color:#D4AF37;">🚛 السائق: ${driverName}</strong><br>
+                            <span>التليفون: ${phone}</span><br>
+                            <span>السرعة الحالية: <b style="color:green;">${speed} كم/س</b></span>
+                        </div>
+                    `);
                 } else {
-                    driverMarkers[id] = L.marker([d.lat, d.lng]).addTo(map).bindPopup(`<b>السائق: ${d.driverName}</b><br>السرعة: ${speedKm} كم/س`);
+                    const truckIcon = L.divIcon({
+                        className: 'truck-marker',
+                        html: `<div style="background:#D4AF37; border:2px solid white; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size:16px;">🚛</div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 18]
+                    });
+
+                    const marker = L.marker([lat, lng], { icon: truckIcon }).addTo(map)
+                        .bindPopup(`<b>${driverName}</b><br>جاري التوصيل...`);
+
+                    driverMarkers[driverId] = marker;
                 }
             });
-
-            updateActiveDriversUI();
         });
 
-        function updateActiveDriversUI() {
-            const listContainer = document.getElementById('activeDriversList');
-            const keys = Object.keys(activeDriversData);
-            listContainer.innerHTML = keys.map(id => {
-                const d = activeDriversData[id];
+        // الاستماع المباشر لقائمة السائقين والعملاء والنقلات
+        onValue(driversRef, (snap) => {
+            const data = snap.val() || {};
+            allDrivers = Object.keys(data).map(k => ({ id: k, ...data[k] }));
+            populateDriversDropdown();
+        });
+
+        onValue(customersRef, (snap) => {
+            const data = snap.val() || {};
+            allCustomers = Object.keys(data).map(k => ({ id: k, ...data[k] }));
+            populateClientsDropdown();
+        });
+
+        onValue(ordersRef, (snap) => {
+            const data = snap.val() || {};
+            const ordersList = Object.keys(data).map(k => ({ id: k, ...data[k] })).reverse();
+            renderOrdersAndFinancials(ordersList);
+        });
+
+        function populateDriversDropdown() {
+            const select = document.getElementById('driverSelect');
+            select.innerHTML = '<option value="">-- اختر السائق من القائمة --</option>';
+            allDrivers.forEach(d => {
+                select.innerHTML += `<option value="${d.id}" data-name="${d.name}" data-phone="${d.phone}">${d.name} (${d.phone})</option>`;
+            });
+        }
+
+        function populateClientsDropdown() {
+            const select = document.getElementById('clientSelect');
+            select.innerHTML = '<option value="">-- اختر العميل --</option>';
+            allCustomers.forEach(c => {
+                select.innerHTML += `<option value="${c.id}" data-name="${c.name}" data-phone="${c.phone}">${c.name}</option>`;
+            });
+        }
+
+        window.onClientSelected = () => {
+            const selectId = document.getElementById('clientSelect').value;
+            const cust = allCustomers.find(c => c.id === selectId);
+            if (cust) {
+                const mapUrl = cust.isCustomLink ? cust.mapUrl : (cust.lat && cust.lng ? `https://www.google.com/maps/dir/?api=1&destination=${cust.lat},${cust.lng}` : '');
+                document.getElementById('clientMapUrl').value = mapUrl;
+            }
+        };
+
+        // عرض النقلات وحساب الدخان الأسبوعي
+        function renderOrdersAndFinancials(orders) {
+            document.getElementById('ordersCount').innerText = `${orders.length} نقلة`;
+            const container = document.getElementById('adminOrdersList');
+
+            const completedOrders = orders.filter(o => o.status === 'تم التوصيل بنجاح');
+            const weeklyCompleted = completedOrders.filter(o => isSundayToThursday(o.date || o.createdAt));
+
+            document.getElementById('weeklyTripsCount').innerText = weeklyCompleted.length;
+
+            const weeklySmoke = weeklyCompleted.reduce((sum, o) => sum + 25 + (parseFloat(o.tips || o.extraTip || 0)), 0);
+            document.getElementById('weeklySmokeTotal').innerText = weeklySmoke.toLocaleString() + ' ج.م';
+
+            if (orders.length === 0) {
+                container.innerHTML = `<p class="text-center text-xs text-slate-400 py-8">لا توجد نقلات مسجلة حتى الآن.</p>`;
+                return;
+            }
+
+            container.innerHTML = orders.map(o => {
+                const inWeek = isSundayToThursday(o.date || o.createdAt);
+                const isOngoing = o.status === 'جاري التوصيل';
+
                 return `
-                    <div onclick="focusDriver('${id}')" class="bg-slate-800 p-3 rounded-xl border border-slate-700 cursor-pointer hover:border-amber-400 transition flex justify-between items-center text-xs">
-                        <div><strong class="text-amber-400 block">${d.driverName}</strong><span class="text-slate-400">السرعة: ${Math.round((d.speed||0)*3.6)} كم/س</span></div>
-                        <i class="fa-solid fa-location-crosshairs text-amber-500"></i>
+                <div class="glass-card gold-border p-4 rounded-xl space-y-2 text-xs">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <strong class="text-white text-sm"><i class="fa-solid fa-user text-amber-500"></i> ${o.driverName} ➔ ${o.clientName}</strong>
+                                ${inWeek ? '<span class="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">أسبوع حالي</span>' : ''}
+                            </div>
+                            <p class="text-slate-400 mt-1">التاريخ: ${o.date || new Date().toLocaleDateString('ar-EG')} | الحمولة: ${o.cargoType || 'علف'} (${o.quantity || 0} طن)</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-[11px] font-bold border ${isOngoing ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse' : (o.status === 'تم التوصيل بنجاح' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/30')}">
+                            ${o.status || 'قيد الانتظار'}
+                        </span>
                     </div>
+
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                        <span class="text-emerald-400 font-bold">الدخان المقدر: ${25 + parseFloat(o.tips || o.extraTip || 0)} ج.م</span>
+                        <span class="text-white font-semibold">المبلغ الإجمالي: ${Number(o.totalAmount || 0).toLocaleString()} ج.م</span>
+                    </div>
+                </div>
                 `;
             }).join('');
         }
 
-        window.focusDriver = (id) => {
-            if (driverMarkers[id]) {
-                map.setView(driverMarkers[id].getLatLng(), 15);
-                driverMarkers[id].openPopup();
-            }
-        };
-
-        window.fitAllDrivers = () => {
-            const group = new L.featureGroup(Object.values(driverMarkers));
-            if (Object.keys(driverMarkers).length) map.fitBounds(group.getBounds());
-        };
-
-        onValue(ref(db, 'clients'), s => {
-            allClients = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
-            document.getElementById('selectOrderClient').innerHTML = allClients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-        });
-
-        onValue(ref(db, 'drivers'), s => {
-            allDrivers = s.val() ? Object.keys(s.val()).map(k => ({id:k, ...s.val()[k]})) : [];
-            document.getElementById('selectOrderDriver').innerHTML = allDrivers.map(d => `<option value="${d.id}">${d.name} (${d.phone})</option>`).join('');
-        });
-
-        window.createNewOrder = async (e) => {
+        // إرسال وإصدار نقلة جديدة
+        window.dispatchNewOrder = async (e) => {
             e.preventDefault();
-            const clientId = document.getElementById('selectOrderClient').value;
-            const driverId = document.getElementById('selectOrderDriver').value;
-            const client = allClients.find(c => c.id === clientId);
-            const driver = allDrivers.find(d => d.id === driverId);
+            const dElem = document.getElementById('driverSelect');
+            const cElem = document.getElementById('clientSelect');
 
-            const newRef = push(ref(db, 'orders'));
-            await set(newRef, {
-                clientId,
-                clientName: client ? client.name : '',
-                lat: client ? client.lat || '' : '',
-                lng: client ? client.lng || '' : '',
+            const driverId = dElem.value;
+            const driverName = dElem.options[dElem.selectedIndex].getAttribute('data-name');
+            const driverPhone = dElem.options[dElem.selectedIndex].getAttribute('data-phone');
+
+            const clientId = cElem.value;
+            const clientName = cElem.options[cElem.selectedIndex].getAttribute('data-name');
+            const clientPhone = cElem.options[cElem.selectedIndex].getAttribute('data-phone');
+
+            const newOrderRef = push(ordersRef);
+            await set(newOrderRef, {
                 driverId,
-                driverName: driver ? driver.name : '',
-                driverPhone: driver ? driver.phone : '',
-                cargoType: document.getElementById('orderCargo').value,
-                quantity: document.getElementById('orderQty').value,
+                driverName,
+                driverPhone,
+                clientId,
+                clientName,
+                clientPhone,
+                mapUrl: document.getElementById('clientMapUrl').value.trim(),
+                cargoType: document.getElementById('cargoType').value,
+                quantity: document.getElementById('quantity').value,
+                totalAmount: document.getElementById('totalAmount').value,
+                extraTip: document.getElementById('extraTip').value,
                 status: 'مقبول',
-                date: new Date().toLocaleDateString('ar-EG')
+                date: new Date().toLocaleDateString('ar-EG'),
+                createdAt: Date.now()
             });
 
-            alert('تم إسناد النقلة للسائق بنجاح وتخزينها في الفايربيس!');
-            document.getElementById('addOrderForm').reset();
-        };
-
-        window.createNewClient = async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('clientName').value;
-            const phone = document.getElementById('clientPhone').value;
-            const mapUrl = document.getElementById('clientMapUrl').value;
-
-            let lat = '', lng = '';
-            const match = mapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-            if (match) { lat = parseFloat(match[1]); lng = parseFloat(match[2]); }
-
-            const newRef = push(ref(db, 'clients'));
-            await set(newRef, { name, phone, mapUrl, lat, lng });
-
-            alert('تم حفظ العميل بنجاح!');
-            document.getElementById('addClientForm').reset();
+            alert('تم إسناد النقلة بنجاح وستظهر فوراً في بوابة السائق!');
+            document.getElementById('dispatchForm').reset();
         };
     </script>
 </body>
