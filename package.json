@@ -1,0 +1,9 @@
+{
+  "name": "almajd-vercel-tracker",
+  "version": "1.0.0",
+  "description": "منصة المجد للأعلاف - تتبع النقل وبوابة السائقين والإدارة على Vercel",
+  "main": "public/index.html",
+  "scripts": {
+    "start": "serve public"
+  }
+}
