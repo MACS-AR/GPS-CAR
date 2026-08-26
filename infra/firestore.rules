@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /tenants/{tenantId} {
+      allow read: if request.auth != null && request.auth.token.tenantId == tenantId;
+      allow write: if request.auth != null && request.auth.token.role in ['owner','admin'] && request.auth.token.tenantId == tenantId;
+    }
+
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.token.tenantId == request.resource.data.tenantId;
+      allow read: if request.auth != null && request.auth.token.tenantId == resource.data.tenantId;
+      allow update, delete: if request.auth != null && (request.auth.uid == userId || request.auth.token.role in ['owner','admin']) && request.auth.token.tenantId == resource.data.tenantId;
+    }
+
+    match /vehicleDrivers/{vdId} {
+      allow read: if request.auth != null && request.auth.token.tenantId == resource.data.tenantId;
+      allow create: if request.auth != null && request.auth.token.tenantId == request.resource.data.tenantId && request.auth.token.role in ['owner','admin','dispatcher'];
+      allow update, delete: if request.auth != null && request.auth.token.tenantId == resource.data.tenantId && request.auth.token.role in ['owner','admin'];
+    }
+
+    match /{collection=alerts,trips,geofences,notifications,billing}/{docId} {
+      allow read, write: if request.auth != null && request.auth.token.tenantId == resource.data.tenantId;
+      allow create: if request.auth != null && request.auth.token.tenantId == request.resource.data.tenantId;
+    }
+
+    match /supportTickets/{ticketId} {
+      allow read: if request.auth != null && request.auth.token.tenantId == resource.data.tenantId;
+      allow create: if request.auth != null && request.resource.data.tenantId == request.auth.token.tenantId;
+    }
+  }
+}

@@ -1,9 +1,29 @@
 {
-  "name": "almajd-vercel-tracker",
-  "version": "1.0.0",
-  "description": "منصة المجد للأعلاف - تتبع النقل وبوابة السائقين والإدارة على Vercel",
-  "main": "public/index.html",
+  "name": "gps-car-dashboard",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "start": "serve public"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "mapbox-gl": "^2.15.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.12.1",
+    "firebase": "^9.22.0",
+    "swr": "^2.2.0",
+    "zustand": "^4.4.0",
+    "dayjs": "^1.11.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "vite": "^5.1.0",
+    "@types/react": "^18.2.25",
+    "@types/react-dom": "^18.2.8",
+    "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^8.44.0"
   }
 }

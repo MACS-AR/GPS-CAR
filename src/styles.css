@@ -1,0 +1,12 @@
+/* Basic styles and RTL support */
+:root{
+  --bg:#0f172a;
+  --card:#0b1220;
+  --muted:#9ca3af;
+  --accent:#10b981;
+}
+html,body,#root{height:100%;direction:rtl}
+body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,'Helvetica Neue',Arial}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px}
+.card{background:var(--card);padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}

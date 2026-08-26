@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "ingest": {
+      "live_tracking": {
+        "$driverId": {
+          ".write": "true",
+          ".read": "false"
+        }
+      }
+    },
+    "liveLocations": {
+      "$tenantId": {
+        ".read": "auth != null && auth.token.tenantId === $tenantId",
+        ".write": "auth != null && (auth.token.role === 'server' || auth.token.tenantId === $tenantId)"
+      }
+    }
+  }
+}
