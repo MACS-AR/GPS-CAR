@@ -17,9 +17,9 @@ const dbRT = firebase.database();
 const dbFS = firebase.firestore();
 
 // =============================================
-// 🗺️ Mapbox Token
+// 🗺️ Mapbox Token (ضع توكنك هنا)
 // =============================================
-const MAPBOX_TOKEN = 'ضع_توكن_الخريطة_هنا';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'; // استبدل بتوكنك
 
 // =============================================
 // 📦 المتغيرات العامة
@@ -33,10 +33,77 @@ let mapMarkers = {};
 let liveListeners = [];
 
 // =============================================
+// 🔐 إنشاء حساب أدمن تلقائي (إذا لم يكن موجوداً)
+// =============================================
+async function ensureAdminAccount() {
+    const adminEmail = 'admin@system.com';
+    const adminPassword = '123456';
+    const adminName = 'المدير العام';
+
+    try {
+        // محاولة تسجيل الدخول بحساب الأدمن أولاً
+        await auth.signInWithEmailAndPassword(adminEmail, adminPassword);
+        console.log('✅ تم تسجيل الدخول بحساب الأدمن الموجود');
+        return true;
+    } catch (err) {
+        // إذا لم يكن الحساب موجوداً، نقوم بإنشائه
+        if (err.code === 'auth/user-not-found') {
+            try {
+                // إنشاء المستخدم في Firebase Auth
+                const userCred = await auth.createUserWithEmailAndPassword(adminEmail, adminPassword);
+                const uid = userCred.user.uid;
+
+                // تحديث اسم المستخدم
+                await userCred.user.updateProfile({ displayName: adminName });
+
+                // إنشاء وثيقة المستخدم في Firestore
+                await dbFS.collection('users').doc(uid).set({
+                    tenantId: 'admin_tenant',
+                    email: adminEmail,
+                    name: adminName,
+                    phone: '0100000000',
+                    role: 'admin',
+                    status: 'active',
+                    createdAt: Date.now()
+                });
+
+                // إنشاء وثيقة تينانت للأدمن (إذا لم تكن موجودة)
+                const tenantRef = dbFS.collection('tenants').doc('admin_tenant');
+                const tenantSnap = await tenantRef.get();
+                if (!tenantSnap.exists) {
+                    await tenantRef.set({
+                        name: 'منصة التتبع',
+                        ownerName: adminName,
+                        email: adminEmail,
+                        phone: '0100000000',
+                        status: 'active',
+                        subscriptionStatus: 'active',
+                        vehiclesCount: 0,
+                        createdAt: Date.now()
+                    });
+                }
+
+                console.log('✅ تم إنشاء حساب الأدمن التلقائي');
+                
+                // تسجيل الدخول تلقائياً
+                await auth.signInWithEmailAndPassword(adminEmail, adminPassword);
+                return true;
+            } catch (createErr) {
+                console.error('❌ فشل إنشاء حساب الأدمن:', createErr.message);
+                return false;
+            }
+        } else {
+            console.error('❌ خطأ في تسجيل الدخول:', err.message);
+            return false;
+        }
+    }
+}
+
+// =============================================
 // 🔐 المصادقة
 // =============================================
 
-// تسجيل الدخول
+// تسجيل الدخول (يُستدعى من النموذج)
 async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
@@ -44,6 +111,12 @@ async function handleLogin(e) {
     const errorEl = document.getElementById('loginError');
 
     errorEl.classList.add('hidden');
+
+    if (!email || !password) {
+        errorEl.textContent = 'الرجاء إدخال البريد وكلمة المرور';
+        errorEl.classList.remove('hidden');
+        return;
+    }
 
     try {
         const cred = await auth.signInWithEmailAndPassword(email, password);
@@ -56,24 +129,21 @@ async function handleLogin(e) {
             userRole = data.role || 'customer';
             userTenantId = data.tenantId || null;
         } else {
+            // إذا لم توجد وثيقة، ننشئها كعميل افتراضي
             userRole = 'customer';
+            userTenantId = 'default';
+            await dbFS.collection('users').doc(currentUser.uid).set({
+                tenantId: 'default',
+                email: currentUser.email,
+                name: currentUser.displayName || 'مستخدم',
+                role: 'customer',
+                status: 'active',
+                createdAt: Date.now()
+            });
         }
 
         // إظهار لوحة التحكم
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('dashboardScreen').classList.remove('hidden');
-
-        // تحديث الواجهة
-        document.getElementById('userName').textContent = `مرحباً، ${currentUser.displayName || 'المستخدم'}`;
-        document.getElementById('userRole').textContent = userRole === 'admin' ? 'مدير' : 'عميل';
-
-        // إظهار قائمة الأدمن للمشرفين
-        if (userRole === 'admin') {
-            document.getElementById('adminMenu').classList.remove('hidden');
-        }
-
-        // تحميل الصفحة الافتراضية
-        showPage('dashboard');
+        showDashboard();
 
     } catch (err) {
         errorEl.textContent = err.message || 'فشل تسجيل الدخول';
@@ -101,24 +171,57 @@ async function handleLogout() {
     }
 }
 
+// تسجيل الدخول السريع بحساب الأدمن
+async function quickLoginAdmin() {
+    document.getElementById('loginEmail').value = 'admin@system.com';
+    document.getElementById('loginPassword').value = '123456';
+    document.getElementById('loginError').classList.add('hidden');
+    
+    try {
+        await auth.signInWithEmailAndPassword('admin@system.com', '123456');
+        // الباقي يتم في onAuthStateChanged
+    } catch (err) {
+        // إذا فشل، نحاول إنشاء الحساب أولاً
+        await ensureAdminAccount();
+        // ثم نحاول مرة أخرى
+        try {
+            await auth.signInWithEmailAndPassword('admin@system.com', '123456');
+        } catch (e) {
+            alert('فشل تسجيل الدخول السريع: ' + e.message);
+        }
+    }
+}
+
+// عرض لوحة التحكم بعد تسجيل الدخول
+function showDashboard() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('dashboardScreen').classList.remove('hidden');
+
+    document.getElementById('userName').textContent = `مرحباً، ${currentUser.displayName || 'المستخدم'}`;
+    document.getElementById('userRole').textContent = userRole === 'admin' ? 'مدير' : 'عميل';
+
+    if (userRole === 'admin') {
+        document.getElementById('adminMenu').classList.remove('hidden');
+    } else {
+        document.getElementById('adminMenu').classList.add('hidden');
+    }
+
+    showPage('dashboard');
+}
+
 // =============================================
 // 📄 التنقل بين الصفحات
 // =============================================
 function showPage(page) {
-    // إخفاء كل الصفحات
     document.querySelectorAll('.page-content').forEach(el => el.classList.add('hidden'));
     
-    // إظهار الصفحة المطلوبة
     const target = document.getElementById('page-' + page);
     if (target) {
         target.classList.remove('hidden');
-        // إلغاء تفعيل جميع الأزرار
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-        // تفعيل الزر المناسب
         document.querySelectorAll(`.nav-btn[data-page="${page}"]`).forEach(b => b.classList.add('active'));
     }
 
-    // تحميل المحتوى حسب الصفحة
     switch(page) {
         case 'dashboard': renderDashboard(); break;
         case 'vehicles': renderVehicles(); break;
@@ -153,11 +256,7 @@ async function renderDashboard() {
         </div>
     `;
 
-    // جلب البيانات من Realtime Database
-    const path = userRole === 'admin' ? 'vehicleDrivers' : `vehicleDrivers`;
-    const ref = dbRT.ref(path);
-
-    // استمع للتحديثات
+    const ref = dbRT.ref('vehicleDrivers');
     ref.off();
     ref.on('value', (snap) => {
         const data = snap.val();
@@ -168,7 +267,6 @@ async function renderDashboard() {
 
         Object.keys(data).forEach(code => {
             const v = data[code];
-            // تصفية حسب tenantId للعميل
             if (userRole !== 'admin' && v.tenantId !== userTenantId) return;
             
             total++;
@@ -177,7 +275,6 @@ async function renderDashboard() {
             else if (status === 'moving') { moving++; online++; }
             else stopped++;
 
-            // جمع آخر المواقع
             if (v.liveLocation) {
                 recent.push({
                     name: v.displayName || code,
@@ -287,7 +384,6 @@ async function renderVehicles() {
 // ➕ إضافة سيارة (مودال)
 // =============================================
 function showAddVehicle() {
-    // إنشاء مودال
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'addVehicleModal';
@@ -333,14 +429,12 @@ async function handleAddVehicle(e) {
     }
 
     try {
-        // التحقق من عدم وجود الكود
         const snap = await dbRT.ref(`vehicleDrivers/${code}`).once('value');
         if (snap.exists()) {
             alert('هذا الكود مستخدم بالفعل');
             return;
         }
 
-        // حفظ البيانات
         await dbRT.ref(`vehicleDrivers/${code}`).set({
             displayName: name,
             phone: phone || '',
@@ -377,7 +471,6 @@ function renderMap() {
         <div id="map-container"></div>
     `;
 
-    // تهيئة الخريطة
     if (mapInstance) {
         mapInstance.remove();
         mapInstance = null;
@@ -395,14 +488,12 @@ function renderMap() {
     mapInstance.addControl(new mapboxgl.NavigationControl());
     mapInstance.addControl(new mapboxgl.FullscreenControl());
 
-    // استمع للمواقع
     const ref = dbRT.ref('vehicleDrivers');
     ref.off();
     ref.on('value', (snap) => {
         const data = snap.val();
         if (!data) return;
 
-        // إزالة الماركرات القديمة
         Object.values(mapMarkers).forEach(m => m.remove());
         mapMarkers = {};
 
@@ -418,12 +509,10 @@ function renderMap() {
             const status = v.status || 'offline';
             const statusClass = status === 'online' ? 'online' : status === 'moving' ? 'moving' : 'offline';
 
-            // إنشاء عنصر HTML للعلامة
             const el = document.createElement('div');
             el.className = `map-marker ${statusClass}`;
             el.innerHTML = `<div style="width:100%;height:100%;border-radius:50%;background:inherit;"></div>`;
 
-            // إضافة ماركر
             const marker = new mapboxgl.Marker({ element: el })
                 .setLngLat([loc.longitude, loc.latitude])
                 .setPopup(new mapboxgl.Popup({ offset: 25 })
@@ -480,7 +569,6 @@ async function renderCompanies() {
         </div>
     `;
 
-    // جلب بيانات الشركات من Firestore
     dbFS.collection('tenants').onSnapshot((snap) => {
         const tbody = document.getElementById('companiesTableBody');
         if (!tbody) return;
@@ -564,11 +652,9 @@ async function handleAddCompany(e) {
     }
 
     try {
-        // إنشاء مستخدم في Firebase Auth
         const userCred = await auth.createUserWithEmailAndPassword(email, password);
         const uid = userCred.user.uid;
 
-        // إنشاء وثيقة الشركة
         const tenantRef = dbFS.collection('tenants').doc();
         await tenantRef.set({
             name,
@@ -581,7 +667,6 @@ async function handleAddCompany(e) {
             createdAt: Date.now()
         });
 
-        // إنشاء وثيقة المستخدم
         await dbFS.collection('users').doc(uid).set({
             tenantId: tenantRef.id,
             email,
@@ -730,7 +815,6 @@ function renderSubscriptions() {
         let html = '';
         for (const doc of snap.docs) {
             const data = doc.data();
-            // جلب اسم الشركة
             let tenantName = data.tenantId || 'غير معروف';
             try {
                 const tenantDoc = await dbFS.collection('tenants').doc(data.tenantId).get();
@@ -798,33 +882,34 @@ async function suspendSubscription(id) {
 // =============================================
 // 🚀 بدء التطبيق
 // =============================================
-auth.onAuthStateChanged((user) => {
+auth.onAuthStateChanged(async (user) => {
     if (user) {
         currentUser = user;
-        // جلب الدور
-        dbFS.collection('users').doc(user.uid).get().then(doc => {
+        try {
+            const doc = await dbFS.collection('users').doc(user.uid).get();
             if (doc.exists) {
                 const data = doc.data();
                 userRole = data.role || 'customer';
                 userTenantId = data.tenantId || null;
             } else {
                 userRole = 'customer';
+                userTenantId = 'default';
             }
+        } catch (e) {
+            userRole = 'customer';
+            userTenantId = 'default';
+        }
 
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('dashboardScreen').classList.remove('hidden');
-            document.getElementById('userName').textContent = `مرحباً، ${user.displayName || 'المستخدم'}`;
-            document.getElementById('userRole').textContent = userRole === 'admin' ? 'مدير' : 'عميل';
-
-            if (userRole === 'admin') {
-                document.getElementById('adminMenu').classList.remove('hidden');
-            }
-
-            showPage('dashboard');
-        });
+        showDashboard();
     } else {
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('dashboardScreen').classList.add('hidden');
+        // محاولة إنشاء حساب الأدمن تلقائياً ثم تسجيل الدخول
+        const success = await ensureAdminAccount();
+        if (!success) {
+            // إذا فشل، نعرض شاشة تسجيل الدخول مع زر سريع
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('dashboardScreen').classList.add('hidden');
+        }
+        // إذا نجح، سيعيد تشغيل onAuthStateChanged مع المستخدم
     }
 });
 
